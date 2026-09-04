@@ -1,0 +1,711 @@
+<html>
+<head>
+<title>Gemini</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style type="text/css">
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #b9b9b9;
+  background-image: -webkit-linear-gradient(top, #c7c7c7, #a9a9a9);
+  background-image: linear-gradient(to bottom, #c7c7c7, #a9a9a9);
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
+}
+
+#navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  background-color: #69aefb;
+  background-image: -webkit-linear-gradient(bottom, #326fee, #69aefb);
+  background-image: linear-gradient(to top, #326fee, #69aefb);
+  border-bottom: 1px solid #0f1d4a;
+  box-shadow: 0px 1px 3px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+
+#navbar .title {
+  position: absolute;
+  left: 70px;
+  right: 78px;
+  top: 0;
+  height: 44px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 19px;
+  text-shadow: 0px -1px 0px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+.title img {
+  height: 35px;
+  width: auto;
+  max-width: 90%;
+  box-sizing: border-box;
+  padding: 3px 0px;
+  vertical-align: middle;
+  -webkit-filter: brightness(0) invert(1) drop-shadow(0px 1px 1px rgba(0,0,0,0.4));
+  filter: brightness(0) invert(1) drop-shadow(0px 1px 1px rgba(0,0,0,0.4));
+}
+
+.titleFallback {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-align-items: center;
+  align-items: center;
+  line-height: 1.1em;
+}
+
+.titleFallbackMain {
+  font-size: 17px;
+  font-weight: bold;
+}
+
+.titleFallbackSub {
+  font-size: 10px;
+  font-weight: normal;
+  color: #ffd6d6;
+}
+
+.navbtn {
+  position: absolute;
+  top: 7px;
+  height: 28px;
+  line-height: 26px;
+  padding: 0px 10px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: #4d8ff5;
+  background-image: -webkit-linear-gradient(bottom, #2952c9, #4d8ff5);
+  background-image: linear-gradient(to top, #2952c9, #4d8ff5);
+  border: 1px solid #1c2f6e;
+  border-radius: 6px;
+  box-shadow: inset 0px 1px 0px rgba(255,255,255,0.4);
+  text-shadow: 0px -1px 0px rgba(0,0,0,0.5);
+  z-index: 11;
+}
+
+#settingsbtn { left: 6px; }
+#newchatbtn { right: 6px; }
+
+#chat {
+  padding: 8px;
+  padding-top: 52px;
+  padding-bottom: 60px;
+}
+
+.bubblewrap {
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.bubble {
+  display: inline-block;
+  max-width: 72%;
+  padding: 5px 15px;
+  border-radius: 15px;
+  line-height: 1.3em;
+  box-shadow: 0px 1px 1px rgba(0,0,0,0.25);
+  position: relative;
+  text-align: left;
+  font-size: 16px;
+}
+
+.me {
+  text-align: right;
+}
+
+.me .bubble {
+  background-color: #f9f9f9;
+  background-image: -webkit-linear-gradient(bottom, #d6d6d2, #f9f9f9);
+  background-image: linear-gradient(to top, #d6d6d2, #f9f9f9);
+  color: #000000;
+  border: 1px solid #a9a9ac;
+  margin-right: 8px;
+}
+
+.them {
+  text-align: left;
+}
+
+.them .bubble {
+  background-color: #69aefb;
+  background-image: -webkit-linear-gradient(bottom, #326fee, #69aefb);
+  background-image: linear-gradient(to top, #326fee, #69aefb);
+  color: #ffffff;
+  border: 1px solid #0f1d4a;
+  margin-left: 8px;
+}
+
+.dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0px 2px;
+  border-radius: 999px;
+  background-color: currentColor;
+  -webkit-animation: dotbounce 1.4s infinite ease-in-out both;
+  animation: dotbounce 1.4s infinite ease-in-out both;
+}
+
+.dots span:nth-child(1) { -webkit-animation-delay: -0.32s; animation-delay: -0.32s; }
+.dots span:nth-child(2) { -webkit-animation-delay: -0.16s; animation-delay: -0.16s; }
+.dots span:nth-child(3) { -webkit-animation-delay: 0s; animation-delay: 0s; }
+
+@-webkit-keyframes dotbounce {
+  0%, 80%, 100% { -webkit-transform: scale(0.4); opacity: 0.5; }
+  40% { -webkit-transform: scale(1); opacity: 1; }
+}
+
+@keyframes dotbounce {
+  0%, 80%, 100% { transform: scale(0.4); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+#bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #eaeaec;
+  background-image: -webkit-linear-gradient(bottom, #b8bac2, #eaeaec);
+  background-image: linear-gradient(to top, #b8bac2, #eaeaec);
+  border-top: 1px solid #9a9a9d;
+  padding: 4px;
+  box-sizing: border-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+#addphotobtn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background-color: #9ba2aa;
+  background-image: -webkit-linear-gradient(bottom, #48545d, #9ba2aa);
+  background-image: linear-gradient(to top, #48545d, #9ba2aa);
+  border: 1px solid #7a7a7d;
+  box-shadow: inset 0px 1px 0px rgba(255,255,255,0.5);
+  margin-right: 6px;
+}
+
+#addphotobtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+#photoInputGallery, #photoInputCamera {
+  display: none;
+}
+
+#addphotobtn.hasimage {
+  background-color: #5fbf5f;
+  background-image: -webkit-linear-gradient(top, #7fd67f, #4aa84a);
+  background-image: linear-gradient(to bottom, #7fd67f, #4aa84a);
+  border: 1px solid #3a8a3a;
+}
+
+#bar input[type=text] {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 30px;
+  padding: 0px 14px;
+  border-radius: 999px;
+  border: 1px solid #9a9a9d;
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
+  font-size: 15px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  margin-right: 6px;
+}
+
+#sendbtn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #0f1d4a;
+  background-color: #69aefb;
+  background-image: -webkit-linear-gradient(bottom, #326fee, #69aefb);
+  background-image: linear-gradient(to top, #326fee, #69aefb);
+}
+
+#sendbtn svg {
+  width: 18px;
+  height: 18px;
+}
+
+#sendbtn.empty {
+  opacity: 0.5;
+}
+
+.bubble.popin {
+  -webkit-animation: bubblePopIn 0.22s cubic-bezier(0.25, 0.8, 0.4, 1.15) both;
+  animation: bubblePopIn 0.22s cubic-bezier(0.25, 0.8, 0.4, 1.15) both;
+}
+
+@-webkit-keyframes bubblePopIn {
+  0% { -webkit-transform: translateY(14px) scale(0.65); opacity: 0.3; }
+  70% { -webkit-transform: translateY(-2px) scale(1.03); opacity: 1; }
+  100% { -webkit-transform: translateY(0px) scale(1); opacity: 1; }
+}
+
+@keyframes bubblePopIn {
+  0% { transform: translateY(14px) scale(0.65); opacity: 0.3; }
+  70% { transform: translateY(-2px) scale(1.03); opacity: 1; }
+  100% { transform: translateY(0px) scale(1); opacity: 1; }
+}
+
+.bubble.loading {
+  height: 33px;
+  box-sizing: border-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+.bubble img {
+  display: block;
+  max-width: 100%;
+  border-radius: 15px;
+  margin-bottom: 4px;
+}
+
+#photoMenuBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.4);
+  z-index: 300;
+}
+
+#photoMenuPanel {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 301;
+}
+
+#photoMenuOptions {
+  border-radius: 13px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  -webkit-box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
+}
+
+.photoMenuOption {
+  background-color: #f7f7f7;
+  background-image: -webkit-linear-gradient(top, #ffffff, #ececec);
+  background-image: linear-gradient(to bottom, #ffffff, #ececec);
+  color: #1a5fd6;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  padding: 14px 0px;
+  border-bottom: 1px solid #c8c8c8;
+}
+
+.photoMenuOption:last-child {
+  border-bottom: none;
+}
+
+#photoMenuCancelBtn {
+  background-color: #ffffff;
+  color: #1a5fd6;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  padding: 14px 0px;
+  border-radius: 13px;
+  -webkit-box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
+}
+
+</style>
+</head>
+<body>
+
+<div id="navbar">
+<div class="title" id="titleContainer" onclick="titleTapped()"><img id="titleLogo" onerror="showNoInternetTitle()"></div>
+<div class="navbtn" id="settingsbtn" onclick="editSettings()">Settings</div>
+<div class="navbtn" id="newchatbtn" onclick="newChat()">New Chat</div>
+</div>
+
+<div id="chat"></div>
+
+<div id="logpanel" style="display:none; position:fixed; left:0; right:0; bottom:60px; max-height:150px; overflow:auto; background-color:#000000; color:#7fff7f; font-family:monospace; font-size:11px; padding:6px; z-index:100; -webkit-overflow-scrolling:touch;"></div>
+
+<div id="bar">
+<div id="addphotobtn" onclick="chooseImage()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#ffffff" d="M10.5 4 H13.5 V10.5 H20 V13.5 H13.5 V20 H10.5 V13.5 H4 V10.5 H10.5 Z"></path></svg></div>
+<input type="file" id="photoInputGallery" accept="image/*">
+<input type="file" id="photoInputCamera" accept="image/*" capture="environment">
+<input type="text" id="prompt" name="prompt" placeholder="Ask Gemini" onkeypress="checkEnter(event)" oninput="updateSendState()">
+<div id="sendbtn" class="empty" onclick="askGemini()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#ffffff" d="M12 4 L19 12 L14 12 L14 20 L10 20 L10 12 L5 12 Z"></path></svg></div>
+</div>
+
+<div id="photoMenuOverlay" style="display:none;">
+<div id="photoMenuBackdrop" onclick="closePhotoMenu()"></div>
+<div id="photoMenuPanel">
+<div id="photoMenuOptions">
+<div class="photoMenuOption" onclick="selectCamera()">Take Photo</div>
+<div class="photoMenuOption" onclick="selectGallery()">Choose from Library</div>
+</div>
+<div id="photoMenuCancelBtn" onclick="closePhotoMenu()">Cancel</div>
+</div>
+</div>
+
+<script type="text/javascript">
+
+// Put your default API key and model here:
+// Default API key/model. Leave apiKey blank for public hosting (e.g. GitHub Pages) —
+// use the Settings button in the app to paste your key in; it's saved in this browser's
+// localStorage only, never in the page source, so it's never exposed to site visitors.
+var apiKey = localStorage.getItem("gemini_apiKey") || "";
+var modelName = localStorage.getItem("gemini_modelName") || "gemini-3.6-flash";
+
+// Put the URL of the logo image to show in the title bar here:
+var logoUrl = "https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg";
+
+// Special test string: typing "test" as a message replies with this instead of calling the API
+var teststring = "PUT YOUR TEST TEXT HERE";
+
+var chatHistory = [];
+var lastDebug = "No request sent yet.";
+var pendingImage = null;
+
+function showDebug() {
+  window.alert(lastDebug);
+}
+
+function showNoInternetTitle() {
+  var container = document.getElementById("titleContainer");
+  container.innerHTML = '<div class="titleFallback"><span class="titleFallbackMain">Gemini</span><span class="titleFallbackSub">No Internet</span></div>';
+}
+
+function showLogoTitle() {
+  var container = document.getElementById("titleContainer");
+  container.innerHTML = '<img id="titleLogo" onerror="showNoInternetTitle()">';
+  document.getElementById("titleLogo").src = logoUrl;
+}
+
+window.addEventListener("online", showLogoTitle);
+
+document.getElementById("titleLogo").src = logoUrl;
+
+var titleTapTimer = null;
+var titleTapCount = 0;
+
+function titleTapped() {
+  titleTapCount = titleTapCount + 1;
+  if (titleTapCount == 1) {
+    titleTapTimer = setTimeout(function() {
+      titleTapCount = 0;
+      showDebug();
+    }, 300);
+  } else {
+    clearTimeout(titleTapTimer);
+    titleTapCount = 0;
+    toggleLogPanel();
+  }
+}
+
+function toggleLogPanel() {
+  var panel = document.getElementById("logpanel");
+  if (panel.style.display == "block") {
+    panel.style.display = "none";
+  } else {
+    panel.style.display = "block";
+  }
+}
+
+function logMsg(msg) {
+  var panel = document.getElementById("logpanel");
+  var line = document.createElement("div");
+  var now = new Date();
+  var t = now.getHours() + ":" + now.getMinutes() + ":" + now.getSeconds();
+  line.appendChild(document.createTextNode("[" + t + "] " + msg));
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function typeWriter(el, fullText, index) {
+  el.textContent = fullText.substring(0, index);
+  if (index < fullText.length) {
+    setTimeout(function() {
+      typeWriter(el, fullText, index + 1);
+    }, 18);
+  }
+}
+
+function updateSendState() {
+  var promptBox = document.getElementById("prompt");
+  var sendBtn = document.getElementById("sendbtn");
+  if (promptBox.value == "") {
+    sendBtn.className = "empty";
+  } else {
+    sendBtn.className = "";
+  }
+}
+
+function checkEnter(e) {
+  var code = e.keyCode ? e.keyCode : e.which;
+  if (code == 13) {
+    askGemini();
+  }
+}
+
+function chooseImage() {
+  document.getElementById("photoMenuOverlay").style.display = "block";
+}
+
+function closePhotoMenu() {
+  document.getElementById("photoMenuOverlay").style.display = "none";
+}
+
+function selectCamera() {
+  closePhotoMenu();
+  logMsg("Chose Camera option");
+  document.getElementById("photoInputCamera").click();
+}
+
+function selectGallery() {
+  closePhotoMenu();
+  logMsg("Chose Gallery option");
+  document.getElementById("photoInputGallery").click();
+}
+
+function handlePhotoFile(file) {
+  logMsg("handlePhotoFile called, file=" + (file ? file.name : "null"));
+  if (!file) { return; }
+  var reader = new FileReader();
+  reader.onload = function(evt) {
+    logMsg("FileReader onload fired");
+    var result = evt.target.result;
+    var comma = result.indexOf(",");
+    var base64 = result.substring(comma + 1);
+    pendingImage = { mimeType: file.type, data: base64 };
+    document.getElementById("addphotobtn").className = "hasimage";
+  };
+  reader.onerror = function() {
+    logMsg("FileReader onerror fired");
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById("photoInputGallery").onchange = function() {
+  logMsg("photoInputGallery onchange fired");
+  handlePhotoFile(this.files[0]);
+};
+
+document.getElementById("photoInputCamera").onchange = function() {
+  logMsg("photoInputCamera onchange fired");
+  handlePhotoFile(this.files[0]);
+};
+
+logMsg("Script loaded OK. UA: " + navigator.userAgent);
+
+function editSettings() {
+  var newModel = window.prompt("Model name:", modelName);
+  if (newModel != null && newModel != "") {
+    modelName = newModel;
+    localStorage.setItem("gemini_modelName", modelName);
+  }
+  var newKey = window.prompt("API Key:", apiKey);
+  if (newKey != null && newKey != "") {
+    apiKey = newKey;
+    localStorage.setItem("gemini_apiKey", apiKey);
+  }
+}
+
+function newChat() {
+  chatHistory = [];
+  document.getElementById("chat").innerHTML = "";
+  lastDebug = "No request sent yet.";
+  pendingImage = null;
+  document.getElementById("addphotobtn").className = "";
+}
+
+function addBubble(text, who, imageMimeAndData, loadingStyle) {
+  var wrap = document.createElement("div");
+  wrap.className = "bubblewrap " + who;
+  var bub = document.createElement("div");
+  bub.className = "bubble" + (loadingStyle ? " loading" : "") + (who == "me" ? " popin" : "");
+  if (imageMimeAndData) {
+    var img = document.createElement("img");
+    img.src = "data:" + imageMimeAndData.mimeType + ";base64," + imageMimeAndData.data;
+    bub.appendChild(img);
+  }
+  var textSpan = document.createElement("span");
+  textSpan.innerHTML = text;
+  bub.appendChild(textSpan);
+  wrap.appendChild(bub);
+  var chat = document.getElementById("chat");
+  chat.appendChild(wrap);
+  window.scrollTo(0, document.body.scrollHeight);
+  return textSpan;
+}
+
+function askGemini() {
+  var promptBox = document.getElementById("prompt");
+  var promptText = promptBox.value;
+  if (promptText == "" && !pendingImage) { return; }
+
+  var imageForThisMessage = pendingImage;
+
+  addBubble(promptText, "me", imageForThisMessage);
+  promptBox.value = "";
+  updateSendState();
+  chatHistory.push({ role: "user", text: promptText, image: imageForThisMessage });
+
+  pendingImage = null;
+  document.getElementById("addphotobtn").className = "";
+
+  if (promptText == "test") {
+    var testLoadingBubble = addBubble('<span class="dots"><span></span><span></span><span></span></span>', "them", null, true);
+    setTimeout(function() {
+      testLoadingBubble.parentNode.className = "bubble";
+      testLoadingBubble.innerHTML = "";
+      typeWriter(testLoadingBubble, teststring, 0);
+      chatHistory.push({ role: "model", text: teststring });
+    }, 5000);
+    lastDebug = "Local test reply, no request was sent.";
+    return;
+  }
+
+  var loadingBubble = addBubble('<span class="dots"><span></span><span></span><span></span></span>', "them", null, true);
+
+  try {
+
+  var now = new Date();
+  var dateStr = now.toString();
+  var uaStr = navigator.userAgent;
+  var platStr = navigator.platform;
+
+  var sysPrompt = "The current date and time is " + dateStr + ". " +
+    "You are being accessed through an extremely barebones, old, or low-power web browser " +
+    "with very limited JavaScript and CSS support (it may not support fetch, modern CSS, " +
+    "or other modern web features). The device/browser identifies itself as: " + uaStr +
+    " (platform: " + platStr + "). " +
+    "Keep your answers short and use plain text only, no markdown, no special formatting, " +
+    "since the browser may not display it correctly. " +
+    "This is an ongoing conversation, so treat prior messages as context for follow-up questions.";
+
+  var contents = [];
+  for (var i = 0; i < chatHistory.length; i++) {
+    var parts = [];
+    if (chatHistory[i].text) {
+      parts.push({ text: chatHistory[i].text });
+    }
+    if (chatHistory[i].image) {
+      parts.push({
+        inlineData: {
+          mimeType: chatHistory[i].image.mimeType,
+          data: chatHistory[i].image.data
+        }
+      });
+    }
+    contents.push({
+      role: chatHistory[i].role,
+      parts: parts
+    });
+  }
+
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey;
+
+  var body = JSON.stringify({
+    system_instruction: {
+      parts: [ { text: sysPrompt } ]
+    },
+    contents: contents
+  });
+
+  lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body + "\n\n(waiting for response...)";
+
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", url, true);
+  xhr.setRequestHeader("Content-Type", "application/json");
+
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4) {
+      lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body +
+        "\n\nSTATUS: " + xhr.status +
+        "\n\nRESPONSE BODY:\n" + xhr.responseText;
+
+      if (xhr.status == 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          var text = data.candidates[0].content.parts[0].text;
+          loadingBubble.parentNode.className = "bubble";
+          loadingBubble.innerHTML = "";
+          typeWriter(loadingBubble, text, 0);
+          chatHistory.push({ role: "model", text: text });
+        } catch (e) {
+          loadingBubble.parentNode.className = "bubble";
+          loadingBubble.innerHTML = "Parse error, tap Gemini above for details";
+        }
+      } else {
+        loadingBubble.parentNode.className = "bubble";
+        loadingBubble.innerHTML = "Error " + xhr.status + ", tap Gemini above for details";
+      }
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  };
+
+  xhr.onerror = function() {
+    lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body +
+      "\n\nNETWORK ERROR: request failed (no response from server — check connection, URL, or CORS).";
+    loadingBubble.parentNode.className = "bubble";
+    loadingBubble.innerHTML = "Network error, tap Gemini above for details";
+  };
+
+  xhr.send(body);
+
+  } catch (e) {
+    lastDebug = "JS ERROR before request could be sent:\n" + e.name + ": " + e.message;
+    loadingBubble.parentNode.className = "bubble";
+    loadingBubble.innerHTML = "Script error, tap Gemini above for details";
+  }
+}
+
+</script>
+
+</body>
+</html>
