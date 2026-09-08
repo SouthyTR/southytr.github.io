@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Battery Test</title>
+<style>
+  body { background: #fff; color: #000; text-align: center; font-family: Helvetica; margin: 0; padding: 0; }
+  #timer { font-size: 48px; margin-top: 20px; border: 2px solid #000; display: inline-block; padding: 10px 20px; }
+  #wrap { position: absolute; top: 50%; left: 50%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); width: 100%; }
+  video { width: 200px; height: 200px; object-fit: cover; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+
+<div id="timer">00:00:00</div>
+
+<!-- looping video keeps iOS screen from sleeping -->
+<video autoplay loop muted playsinline>
+  <source src="video.mp4" type="video/mp4">
+</video>
+
+</div>
+
+<script>
+var seconds = 0;
+function pad(n) { return n < 10 ? "0" + n : n; }
+function tick() {
+  seconds = seconds + 1;
+  var h = Math.floor(seconds / 3600);
+  var m = Math.floor((seconds % 3600) / 60);
+  var s = seconds % 60;
+  document.getElementById("timer").innerHTML = pad(h) + ":" + pad(m) + ":" + pad(s);
+}
+setInterval(tick, 1000);
+</script>
+
+</body>
+</html>
