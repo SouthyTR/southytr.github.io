@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player</title>
+<style>
+  :root{
+    --panel:#1b1c1a;
+    --panel-2:#232421;
+    --edge:#3a3b37;
+    --lcd-bg:#c9d6b8;
+    --lcd-fg:#26311d;
+    --lcd-dim:#6c7960;
+    --accent:#ffffff;
+    --text:#e8e6df;
+    --text-dim:#8f8d84;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 20% -10%, #2a2b27, #101110 60%);
+    font-family: 'Courier New', 'JetBrains Mono', monospace;
+    color:var(--text);
+    padding:24px;
+  }
+
+  .deck{
+    width:100%;
+    max-width:480px;
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--edge);
+    border-radius:10px;
+    padding:18px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .lcd{
+    background:var(--lcd-bg);
+    border-radius:4px;
+    padding:14px 16px;
+    color:var(--lcd-fg);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+    position:relative;
+    overflow:hidden;
+  }
+  .lcd::after{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(
+      180deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px
+    );
+    pointer-events:none;
+  }
+  .lcd-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:10px;
+    letter-spacing:.08em;
+    color:var(--lcd-dim);
+    margin-bottom:8px;
+  }
+  .lcd-title{
+    font-size:16px;
+    font-weight:bold;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-align:center;
+    margin-bottom:12px;
+  }
+
+  .seek{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height:10px;
+    background:transparent;
+    cursor:pointer;
+    margin:2px 0 4px;
+  }
+  .seek::-webkit-slider-runnable-track{
+    height:4px;
+    background:var(--lcd-fg);
+    opacity:.35;
+    border-radius:2px;
+  }
+  .seek::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:10px; height:10px;
+    margin-top:-3px;
+    border-radius:50%;
+    background:var(--lcd-fg);
+  }
+  .seek::-moz-range-track{
+    height:4px;
+    background:var(--lcd-fg);
+    opacity:.35;
+    border-radius:2px;
+  }
+  .seek::-moz-range-thumb{
+    width:10px;height:10px;
+    border:none;
+    border-radius:50%;
+    background:var(--lcd-fg);
+  }
+
+  .time-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:10px;
+    color:var(--lcd-dim);
+  }
+
+  .controls{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:18px 0 10px;
+  }
+  .btn{
+    background:var(--panel-2);
+    border:1px solid var(--edge);
+    color:var(--text);
+    width:42px; height:42px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:transform .05s ease, background .15s ease;
+  }
+  .btn:hover{ background:#2a2b28; }
+  .btn:active{ transform:scale(.92); }
+  .btn svg{ width:16px; height:16px; fill:var(--text); }
+  .btn.play{
+    width:54px; height:54px;
+    background:var(--accent);
+    border-color:var(--accent);
+  }
+  .btn.play svg{ fill:#1b1c1a; width:18px; height:18px; }
+  .btn.play:hover{ background:#d8d8d3; }
+
+  .vol-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 6px 14px;
+  }
+  .vol-row svg{ width:13px; height:13px; fill:var(--text-dim); flex-shrink:0; }
+  .vol{
+    -webkit-appearance:none;
+    appearance:none;
+    flex:1;
+    height:3px;
+    background:var(--edge);
+    border-radius:2px;
+  }
+  .vol::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:9px; height:9px;
+    border-radius:50%;
+    background:var(--text-dim);
+  }
+  .vol::-moz-range-thumb{
+    width:9px; height:9px; border:none;
+    border-radius:50%;
+    background:var(--text-dim);
+  }
+
+  .list-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:10px;
+    letter-spacing:.1em;
+    color:var(--text-dim);
+    padding:12px 6px 6px;
+    border-top:1px solid var(--edge);
+  }
+  .status{ color:var(--text-dim); font-size:10px; }
+  .status.demo{ color:var(--accent); }
+
+  .list{
+    max-height:220px;
+    overflow-y:auto;
+    padding:2px 0;
+  }
+  .track{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 8px;
+    border-radius:5px;
+    cursor:pointer;
+    font-size:12.5px;
+    color:var(--text-dim);
+  }
+  .track:hover{ background:var(--panel-2); color:var(--text); }
+  .track.active{ background:var(--panel-2); color:var(--accent); }
+  .track .n{
+    width:16px;
+    text-align:right;
+    font-size:10.5px;
+    opacity:.6;
+    flex-shrink:0;
+  }
+  .track .t{
+    flex:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .track .bars{
+    display:flex;
+    gap:2px;
+    align-items:flex-end;
+    height:10px;
+    opacity:0;
+    flex-shrink:0;
+  }
+  .track.active .bars{ opacity:1; }
+  .track .bars span{
+    width:2px;
+    background:var(--accent);
+    animation: eq 0.9s ease-in-out infinite;
+  }
+  .track .bars span:nth-child(1){ height:4px; animation-delay:0s; }
+  .track .bars span:nth-child(2){ height:9px; animation-delay:.15s; }
+  .track .bars span:nth-child(3){ height:6px; animation-delay:.3s; }
+  @keyframes eq{
+    0%,100%{ transform:scaleY(.4); }
+    50%{ transform:scaleY(1); }
+  }
+  .list::-webkit-scrollbar{ width:6px; }
+  .list::-webkit-scrollbar-thumb{ background:var(--edge); border-radius:3px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .track .bars span{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="lcd">
+    <div class="lcd-row">
+      <span id="lcdIndex">— / —</span>
+      <span id="lcdStatus">READY</span>
+    </div>
+    <div class="lcd-title" id="lcdTitle">No track loaded</div>
+    <input type="range" class="seek" id="seek" value="0" min="0" max="100" step="0.1">
+    <div class="time-row">
+      <span id="tCurrent">0:00</span>
+      <span id="tTotal">0:00</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="btn" id="prevBtn" title="Previous">
+      <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg>
+    </div>
+    <div class="btn play" id="playBtn" title="Play/Pause">
+      <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div class="btn" id="nextBtn" title="Next">
+      <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+    </div>
+  </div>
+
+  <div class="vol-row">
+    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4.03v8.06A4.5 4.5 0 0016.5 12z"/></svg>
+    <input type="range" class="vol" id="vol" min="0" max="1" step="0.01" value="0.8">
+  </div>
+
+  <div class="list-label">
+    <span>PLAYLIST</span>
+    <span class="status" id="sourceStatus">scanning repo…</span>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+(function(){
+  const AUDIO_EXT = ['mp3','wav','ogg','m4a','flac','opus','aac','webm'];
+
+  const FALLBACK = [
+    { name: 'Sample Track', url: 'https://getsamplefiles.com/download/mp3/sample-4.mp3' }
+  ];
+
+  const audio = document.getElementById('audio');
+  const listEl = document.getElementById('list');
+  const sourceStatus = document.getElementById('sourceStatus');
+  const lcdTitle = document.getElementById('lcdTitle');
+  const lcdIndex = document.getElementById('lcdIndex');
+  const lcdStatus = document.getElementById('lcdStatus');
+  const seek = document.getElementById('seek');
+  const tCurrent = document.getElementById('tCurrent');
+  const tTotal = document.getElementById('tTotal');
+  const playBtn = document.getElementById('playBtn');
+  const playIcon = document.getElementById('playIcon');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const vol = document.getElementById('vol');
+
+  let playlist = [];
+  let current = -1;
+  let seeking = false;
+
+  const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
+  const ICON_PAUSE = '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+
+  function fmtTime(s){
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  function displayName(name){
+    let n = decodeURIComponent(name.split('/').pop() || name);
+    n = n.replace(/\.[a-zA-Z0-9]+$/, '');
+    n = n.replace(/[_-]+/g, ' ').trim();
+    return n || name;
+  }
+
+  function renderList(){
+    listEl.innerHTML = '';
+    playlist.forEach((track, i) => {
+      const row = document.createElement('div');
+      row.className = 'track' + (i === current ? ' active' : '');
+      row.innerHTML = `
+        <span class="n">${(i+1).toString().padStart(2,'0')}</span>
+        <span class="t">${track.name}</span>
+        <span class="bars"><span></span><span></span><span></span></span>
+      `;
+      row.addEventListener('click', () => loadTrack(i, true));
+      listEl.appendChild(row);
+    });
+  }
+
+  function loadTrack(i, autoplay){
+    if (i < 0 || i >= playlist.length) return;
+    current = i;
+    const track = playlist[i];
+    audio.src = track.url;
+    lcdTitle.textContent = track.name;
+    lcdIndex.textContent = `${i+1} / ${playlist.length}`;
+    renderList();
+    if (autoplay){
+      audio.play().catch(()=>{});
+    }
+  }
+
+  function setPlayIcon(playing){
+    playIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (current === -1 && playlist.length) { loadTrack(0, true); return; }
+    if (audio.paused) audio.play().catch(()=>{});
+    else audio.pause();
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (!playlist.length) return;
+    const i = (current - 1 + playlist.length) % playlist.length;
+    loadTrack(i, true);
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (!playlist.length) return;
+    const i = (current + 1) % playlist.length;
+    loadTrack(i, true);
+  });
+
+  audio.addEventListener('play', () => { setPlayIcon(true); lcdStatus.textContent = 'PLAYING'; });
+  audio.addEventListener('pause', () => { setPlayIcon(false); lcdStatus.textContent = 'PAUSED'; });
+  audio.addEventListener('ended', () => nextBtn.click());
+
+  audio.addEventListener('loadedmetadata', () => {
+    tTotal.textContent = fmtTime(audio.duration);
+    seek.max = audio.duration || 100;
+  });
+
+  audio.addEventListener('timeupdate', () => {
+    if (seeking) return;
+    tCurrent.textContent = fmtTime(audio.currentTime);
+    seek.value = audio.currentTime;
+  });
+
+  seek.addEventListener('input', () => { seeking = true; tCurrent.textContent = fmtTime(seek.value); });
+  seek.addEventListener('change', () => { audio.currentTime = parseFloat(seek.value); seeking = false; });
+
+  vol.addEventListener('input', () => { audio.volume = parseFloat(vol.value); });
+  audio.volume = parseFloat(vol.value);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body){
+      e.preventDefault();
+      playBtn.click();
+    }
+  });
+
+  // --- discover audio files in this repo/folder via the GitHub Contents API ---
+  // Works on GitHub Pages (user/org sites and project sites), since GH Pages
+  // itself has no directory listing. Falls back to a demo track otherwise.
+  async function fetchDir(owner, repo, dirPath){
+    const apiPath = dirPath.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${apiPath}`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('bad response');
+    const items = await res.json();
+    if (!Array.isArray(items)) throw new Error('not a directory');
+    return items
+      .filter(item => item.type === 'file' && AUDIO_EXT.includes((item.name.split('.').pop() || '').toLowerCase()))
+      .map(item => ({ name: displayName(item.name), url: item.download_url }));
+  }
+
+  async function scanRepo(){
+    const host = location.hostname;
+    if (!host.endsWith('.github.io')) return [];
+    const owner = host.split('.')[0];
+    const segments = location.pathname.split('/').filter(Boolean);
+    const isFile = segments.length && segments[segments.length - 1].includes('.');
+    const dirSegments = isFile ? segments.slice(0, -1) : segments;
+
+    // Try as a project page first: owner.github.io/<repo>/<...dir>
+    if (dirSegments.length){
+      try {
+        const repo = dirSegments[0];
+        const dirPath = dirSegments.slice(1).join('/');
+        const found = await fetchDir(owner, repo, dirPath);
+        if (found.length) return found;
+      } catch (err) { /* fall through */ }
+    }
+
+    // Try as a user/org page: owner.github.io itself is the repo
+    try {
+      const repo = `${owner}.github.io`;
+      const dirPath = dirSegments.join('/');
+      const found = await fetchDir(owner, repo, dirPath);
+      if (found.length) return found;
+    } catch (err) { /* fall through */ }
+
+    return [];
+  }
+
+  scanRepo().then(found => {
+    if (found.length){
+      playlist = found;
+      sourceStatus.textContent = `${found.length} track${found.length>1?'s':''}`;
+      sourceStatus.classList.remove('demo');
+    } else {
+      playlist = FALLBACK;
+      sourceStatus.textContent = 'demo track';
+      sourceStatus.classList.add('demo');
+    }
+    renderList();
+    lcdStatus.textContent = 'READY';
+    lcdIndex.textContent = `0 / ${playlist.length}`;
+  });
+})();
+</script>
+</body>
+</html>
