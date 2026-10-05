@@ -376,7 +376,7 @@ body {
 
 <div id="chat"></div>
 
-<div id="logpanel" style="display:none; position:fixed; left:0; right:0; bottom:60px; max-height:150px; overflow:auto; background-color:#000000; color:#7fff7f; font-family:monospace; font-size:11px; padding:6px; z-index:100; -webkit-overflow-scrolling:touch;"></div>
+<div id="logpanel" style="display:none; position:fixed; left:0; right:0; bottom:60px; max-height:150px; overflow:auto; background-color:#000000; color:#7fff7f; font-family:monospace; font-size:11px; padding:4px; z-index:9999;"></div>
 
 <div id="bar">
 <div id="addphotobtn" onclick="chooseImage()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#ffffff" d="M10.5 4 H13.5 V10.5 H20 V13.5 H13.5 V20 H10.5 V13.5 H4 V10.5 H10.5 Z"></path></svg></div>
@@ -407,7 +407,7 @@ var apiKey = localStorage.getItem("gemini_apiKey") || "";
 var modelName = localStorage.getItem("gemini_modelName") || "gemini-3.6-flash";
 
 // Put the URL of the logo image to show in the title bar here:
-var logoUrl = "https://github.com/SouthyTR/southytr.github.io/blob/main/GeminiLegacy/logo.svg";
+var logoUrl = "https://raw.githubusercontent.com/SouthyTR/southytr.github.io/main/GeminiLegacy/logo.svg";
 
 // Special test string: typing "test" as a message replies with this instead of calling the API
 var teststring = "PUT YOUR TEST TEXT HERE";
