@@ -1,3 +1,9 @@
+<!-- 
+  GeminiLegacy by SouthyTR except i actually used claude to write all the code so i dont think i get to claim ownership of it
+  lets call this version 1
+  please consider listening to the no-doubt humangem Cross by the french house music duo Justice as a palate cleanser after checking this code out
+-->
+
 <html>
 <head>
 <title>Gemini</title>
@@ -31,12 +37,13 @@ body {
   border-bottom: 1px solid #0f1d4a;
   box-shadow: 0px 1px 3px rgba(0,0,0,0.5);
   z-index: 10;
+  -webkit-transform: translate3d(0,0,0);
 }
 
 #navbar .title {
   position: absolute;
-  left: 70px;
-  right: 78px;
+  left: 0;
+  right: 0;
   top: 0;
   height: 44px;
   display: -webkit-box;
@@ -197,6 +204,7 @@ body {
   padding: 4px;
   box-sizing: border-box;
   overflow: hidden;
+  -webkit-transform: translate3d(0,0,0);
 }
 
 #addphotobtn {
@@ -219,7 +227,7 @@ body {
   margin-top: 7px;
 }
 
-#photoInputGallery, #photoInputCamera {
+#photoInputGallery {
   display: none;
 }
 
@@ -230,19 +238,43 @@ body {
   border: 1px solid #3a8a3a;
 }
 
-#bar input[type=text] {
-  display: block;
-  width: auto;
-  margin-left: 36px;
-  margin-right: 30px;
+#promptwrap {
+  margin-left: 38px;
+  margin-right: 38px;
   height: 30px;
-  padding: 0px 32px;
+  padding: 0px 12px;
   border-radius: 999px;
   border: 1px solid #9a9a9d;
   box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
-  font-size: 15px;
   background-color: #ffffff;
   box-sizing: border-box;
+}
+
+#prompt {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 28px;
+  line-height: 28px;
+  padding: 0;
+  border: none;
+  margin: 0;
+  font-size: 15px;
+  background-color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  outline: none;
+  color: #000000;
+  -webkit-user-select: text;
+  -webkit-appearance: none;
+}
+
+#prompt:empty:before {
+  content: attr(data-placeholder);
+  color: #a0a0a0;
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 #sendbtn {
@@ -306,60 +338,6 @@ body {
   margin-bottom: 4px;
 }
 
-#photoMenuBackdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.4);
-  z-index: 300;
-}
-
-#photoMenuPanel {
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  z-index: 301;
-}
-
-#photoMenuOptions {
-  border-radius: 13px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  -webkit-box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
-  box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
-}
-
-.photoMenuOption {
-  background-color: #f7f7f7;
-  background-image: -webkit-linear-gradient(top, #ffffff, #ececec);
-  background-image: linear-gradient(to bottom, #ffffff, #ececec);
-  color: #1a5fd6;
-  font-size: 18px;
-  font-weight: bold;
-  text-align: center;
-  padding: 14px 0px;
-  border-bottom: 1px solid #c8c8c8;
-}
-
-.photoMenuOption:last-child {
-  border-bottom: none;
-}
-
-#photoMenuCancelBtn {
-  background-color: #ffffff;
-  color: #1a5fd6;
-  font-size: 18px;
-  font-weight: bold;
-  text-align: center;
-  padding: 14px 0px;
-  border-radius: 13px;
-  -webkit-box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
-  box-shadow: 0px 2px 8px rgba(0,0,0,0.4);
-}
-
 </style>
 </head>
 <body>
@@ -378,19 +356,7 @@ body {
 <div id="addphotobtn" onclick="chooseImage()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#ffffff" d="M10.5 4 H13.5 V10.5 H20 V13.5 H13.5 V20 H10.5 V13.5 H4 V10.5 H10.5 Z"></path></svg></div>
 <div id="sendbtn" class="empty" onclick="askGemini()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#ffffff" d="M12 4 L19 12 L14 12 L14 20 L10 20 L10 12 L5 12 Z"></path></svg></div>
 <input type="file" id="photoInputGallery" accept="image/*">
-<input type="file" id="photoInputCamera" accept="image/*" capture="environment">
-<input type="text" id="prompt" name="prompt" placeholder="Ask Gemini" onkeypress="checkEnter(event)" oninput="updateSendState()">
-</div>
-
-<div id="photoMenuOverlay" style="display:none;">
-<div id="photoMenuBackdrop" onclick="closePhotoMenu()"></div>
-<div id="photoMenuPanel">
-<div id="photoMenuOptions">
-<div class="photoMenuOption" onclick="selectCamera()">Take Photo</div>
-<div class="photoMenuOption" onclick="selectGallery()">Choose from Library</div>
-</div>
-<div id="photoMenuCancelBtn" onclick="closePhotoMenu()">Cancel</div>
-</div>
+<div id="promptwrap"><div id="prompt" contenteditable="true" data-placeholder="Ask Gemini" onkeypress="checkEnter(event)" oninput="updateSendState()"></div></div>
 </div>
 
 <script type="text/javascript">
@@ -485,7 +451,8 @@ function typeWriter(el, fullText, index) {
 function updateSendState() {
   var promptBox = document.getElementById("prompt");
   var sendBtn = document.getElementById("sendbtn");
-  if (promptBox.value == "") {
+  if (promptBox.textContent == "") {
+    if (promptBox.innerHTML != "") { promptBox.innerHTML = ""; }
     sendBtn.className = "empty";
   } else {
     sendBtn.className = "";
@@ -495,27 +462,12 @@ function updateSendState() {
 function checkEnter(e) {
   var code = e.keyCode ? e.keyCode : e.which;
   if (code == 13) {
+    if (e.preventDefault) { e.preventDefault(); }
     askGemini();
   }
 }
 
 function chooseImage() {
-  document.getElementById("photoMenuOverlay").style.display = "block";
-}
-
-function closePhotoMenu() {
-  document.getElementById("photoMenuOverlay").style.display = "none";
-}
-
-function selectCamera() {
-  closePhotoMenu();
-  logMsg("Chose Camera option");
-  document.getElementById("photoInputCamera").click();
-}
-
-function selectGallery() {
-  closePhotoMenu();
-  logMsg("Chose Gallery option");
   document.getElementById("photoInputGallery").click();
 }
 
@@ -539,11 +491,6 @@ function handlePhotoFile(file) {
 
 document.getElementById("photoInputGallery").onchange = function() {
   logMsg("photoInputGallery onchange fired");
-  handlePhotoFile(this.files[0]);
-};
-
-document.getElementById("photoInputCamera").onchange = function() {
-  logMsg("photoInputCamera onchange fired");
   handlePhotoFile(this.files[0]);
 };
 
@@ -586,19 +533,54 @@ function addBubble(text, who, imageMimeAndData, loadingStyle) {
   wrap.appendChild(bub);
   var chat = document.getElementById("chat");
   chat.appendChild(wrap);
-  window.scrollTo(0, document.body.scrollHeight);
+  scrollToBottom();
   return textSpan;
 }
 
+function scrollToBottom() {
+  if (document.body.scrollHeight > window.innerHeight) {
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+}
+
+function resetLayout() {
+  if (document.body.scrollHeight > window.innerHeight) {
+    window.scrollTo(0, document.body.scrollHeight);
+  } else {
+    window.scrollTo(0, 0);
+  }
+}
+
+function resetLayoutSoon() {
+  setTimeout(resetLayout, 50);
+  setTimeout(resetLayout, 350);
+}
+
+document.getElementById("prompt").onblur = resetLayoutSoon;
+
+var tapMoved = false;
+document.addEventListener("touchstart", function() { tapMoved = false; }, false);
+document.addEventListener("touchmove", function() { tapMoved = true; }, false);
+document.addEventListener("touchend", function(e) {
+  if (tapMoved) { return; }
+  var el = e.target;
+  while (el) {
+    if (el.id == "bar") { return; }
+    el = el.parentNode;
+  }
+  document.getElementById("prompt").blur();
+}, false);
+
 function askGemini() {
   var promptBox = document.getElementById("prompt");
-  var promptText = promptBox.value;
+  var promptText = promptBox.textContent;
   if (promptText == "" && !pendingImage) { return; }
 
   var imageForThisMessage = pendingImage;
 
   addBubble(promptText, "me", imageForThisMessage);
-  promptBox.value = "";
+  promptBox.innerHTML = "";
+  resetLayoutSoon();
   updateSendState();
   chatHistory.push({ role: "user", text: promptText, image: imageForThisMessage });
 
@@ -666,12 +648,22 @@ function askGemini() {
 
   lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body + "\n\n(waiting for response...)";
 
+  var maxRetries = 5;
+
+  var sendRequest = function(attempt) {
   var xhr = new XMLHttpRequest();
   xhr.open("POST", url, true);
   xhr.setRequestHeader("Content-Type", "application/json");
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState == 4) {
+      if (xhr.status == 503 && attempt < maxRetries) {
+        lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body +
+          "\n\nSTATUS: 503 (retrying, attempt " + (attempt + 1) + " of " + maxRetries + ")";
+        setTimeout(function() { sendRequest(attempt + 1); }, 1000 + attempt * 1000);
+        return;
+      }
+
       lastDebug = "URL:\n" + url + "\n\nREQUEST BODY:\n" + body +
         "\n\nSTATUS: " + xhr.status +
         "\n\nRESPONSE BODY:\n" + xhr.responseText;
@@ -692,7 +684,7 @@ function askGemini() {
         loadingBubble.parentNode.className = "bubble";
         loadingBubble.innerHTML = "Error " + xhr.status + ", tap Gemini above for details";
       }
-      window.scrollTo(0, document.body.scrollHeight);
+      scrollToBottom();
     }
   };
 
@@ -704,6 +696,9 @@ function askGemini() {
   };
 
   xhr.send(body);
+  };
+
+  sendRequest(0);
 
   } catch (e) {
     lastDebug = "JS ERROR before request could be sent:\n" + e.name + ": " + e.message;
