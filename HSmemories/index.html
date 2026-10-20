@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yıllık</title>
+<style>
+  :root {
+    --bg: #e9e6df;
+    --ink: #1d1d1b;
+    --btn: #1d1d1b;
+    --icon: #e9e6df;
+    --panel: #f6f4ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --ink: #ecebe6; --btn: #ecebe6; --icon: #151514; --panel: #232321; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: env(safe-area-inset-top) 16px 0;
+    overflow: hidden;
+  }
+
+  /* ---------- blurred backdrop (current photo, blown up and softened) ---------- */
+  #bgwrap { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .bgl {
+    position: absolute; inset: -60px; background-size: cover; background-position: center;
+    filter: blur(40px) saturate(1.8) contrast(1.05); opacity: 0; transition: opacity .6s ease;
+  }
+  .bgl.on { opacity: 1; }
+  #bgveil { position: absolute; inset: 0; background: var(--bg); opacity: .2; }   /* light tint only; buttons get their own frosted backing */
+  #stage, #bar { position: relative; z-index: 1; }
+  body.fs #bgwrap { display: none; }
+  @media (prefers-reduced-motion: reduce) { .bgl { transition: none; } }
+
+  /* ---------- viewing area ---------- */
+  #stage {
+    flex: 1; min-height: 0; width: 100%; max-width: 900px;
+    margin-top: 16px;
+    display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center; overflow: hidden;
+    touch-action: pan-y pinch-zoom;
+  }
+  #stage img, #stage video {
+    grid-area: 1 / 1; max-width: 100%; max-height: 100%; width: auto; height: auto;
+    object-fit: contain; display: block; will-change: transform, opacity;
+    border: 12px solid var(--bg); border-radius: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, .22);   /* frame in the page's original background color */
+    -webkit-user-drag: none; user-select: none;
+  }
+  #stage .msg { grid-area: 1 / 1; padding: 24px; text-align: center; line-height: 1.5; opacity: .7; }
+
+  /* fullscreen: controls hidden, media on black; pinch-zoom is the browser's own */
+  body.fs #bar { display: none; }
+  body.fs #stage {
+    position: fixed; inset: 0; z-index: 5; margin: 0; max-width: none; background: #000;
+  }
+  body.fs #stage img, body.fs #stage video { border: 0; border-radius: 0; box-shadow: none; }
+
+  /* ---------- bottom bar ---------- */
+  #bar {
+    width: 100%; max-width: 900px;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+    padding: 14px 4px calc(env(safe-area-inset-bottom) + 14px);
+  }
+  .side { display: flex; gap: 10px; }
+  .side.l { justify-content: flex-end; }
+  .side.r { justify-content: flex-start; }
+
+  button { font: inherit; color: inherit; }
+  .big, .sm { border-radius: 50%; cursor: pointer; display: grid; place-items: center; padding: 0; transition: transform .15s ease, opacity .15s; }
+  .big { width: 60px; height: 60px; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink); box-shadow: 0 4px 16px rgba(0, 0, 0, .22); }
+  .big svg { width: 28px; height: 28px; fill: currentColor; }
+  .sm {
+    width: 44px; height: 44px; border: 1.5px solid var(--ink); color: var(--ink);
+    background: transparent;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .sm svg { width: 20px; height: 20px; fill: currentColor; }
+  .sm svg.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .sm[aria-pressed="true"] { background: var(--btn); color: var(--icon); }
+  #ss[aria-pressed="true"] .i-play, #ss[aria-pressed="false"] .i-pause { display: none; }
+  button:disabled { opacity: .3; cursor: default; }
+  button:not(:disabled):active { transform: scale(.92); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  /* ---------- slideshow panel ---------- */
+  #sspanel {
+    position: fixed; z-index: 10; left: 50%; transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom) + 96px);
+    width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 12px;
+    background: var(--panel); border: 1.5px solid var(--ink);
+    display: flex; flex-direction: column; gap: 12px; font-size: 16px;
+  }
+  #sspanel small { opacity: .65; font-size: 13px; }
+  #sspanel input[type=range] { width: 100%; accent-color: var(--ink); }
+  .pbtn { padding: 11px 14px; border: 0; border-radius: 8px; cursor: pointer; background: var(--btn); color: var(--icon); }
+
+  /* ---------- lock screen ---------- */
+  .lock { display: flex; flex-direction: column; align-items: center; gap: 18px; opacity: 1 !important; }
+  .lock form { display: flex; flex-direction: column; gap: 12px; width: min(320px, 100%); font-size: 18px; text-align: left; }
+  .lock input[type=password] {
+    font: inherit; padding: 12px 14px; border-radius: 8px; border: 1.5px solid var(--ink);
+    background: transparent; color: var(--ink);
+  }
+  .lock .err { font-size: 15px; min-height: 1.3em; }
+  .lockicon { width: 76px; height: 76px; color: var(--ink); overflow: visible; }
+  .lockicon .kh { fill: var(--bg); }
+  .lockicon .lbody { transform-origin: 32px 43px; }
+  .lockicon .shackle { transform-origin: 20px 32px; }
+  .lockicon .kh { transition: opacity .2s; }
+  .lockicon .check { stroke: var(--bg); stroke-dasharray: 26; stroke-dashoffset: 26; transition: stroke-dashoffset .35s .25s ease-out; }
+  /* unlock: the right leg pops out and the shackle stays lifted (left leg stays in the body); keyhole turns into a check */
+  .lockicon.open .shackle { animation: unlatch .65s cubic-bezier(.3, 1.3, .5, 1) forwards; }
+  .lockicon.open .kh { opacity: 0; }
+  .lockicon.open .check { stroke-dashoffset: 0; }
+  .lockicon.open .lbody { animation: lpop .35s .2s ease-out; }
+  .lock.leaving { opacity: 0 !important; transform: scale(.96); transition: opacity .25s, transform .25s; }
+  .lock.shake { animation: shake .4s; }
+  @keyframes unlatch { 0% { transform: none; } 100% { transform: translateY(-6px); } }
+  @keyframes lpop { 50% { transform: scale(1.08); } }
+  @keyframes shake { 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .lockicon.open .shackle, .lockicon.open .lbody, .lock.shake { animation: none; }
+    .lockicon .kh, .lockicon .check { transition: none; }
+    .lock.leaving { transition: none; }
+  }
+
+  /* ---------- landscape: controls move to the right edge ---------- */
+  @media (orientation: landscape) {
+    body {
+      flex-direction: row; align-items: stretch;
+      padding: env(safe-area-inset-top) calc(env(safe-area-inset-right) + 8px) env(safe-area-inset-bottom) calc(env(safe-area-inset-left) + 16px);
+    }
+    #stage { max-width: none; margin: 16px 0; }
+    #bar {
+      width: auto; max-width: none; padding: 0 8px 0 20px;
+      grid-template-columns: auto; grid-template-rows: 1fr auto 1fr; justify-items: center;
+      align-items: stretch;   /* side groups fill their rows, so flex-end/start pushes them against the next button */
+    }
+    /* top to bottom: fullscreen, download, next, previous, slideshow (reverse of portrait) */
+    .side { flex-direction: column-reverse; }
+    .side.r { grid-row: 1; justify-content: flex-start; }
+    #next { grid-row: 2; }
+    .side.l { grid-row: 3; justify-content: flex-end; }
+    #sspanel { left: auto; right: calc(env(safe-area-inset-right) + 100px); bottom: 50%; transform: translateY(50%); }
+  }
+</style>
+</head>
+<body>
+  <div id="bgwrap" aria-hidden="true"><div id="bgveil"></div></div>
+  <main id="stage"><p class="msg">Yükleniyor…</p></main>
+
+  <div id="bar">
+    <div class="side l">
+      <button id="ss" class="sm" aria-label="Slayt gösterisi" aria-pressed="false" disabled>
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+      <button id="prev" class="sm" aria-label="Önceki" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14L8 12z"/><rect x="4.5" y="5" width="2.5" height="14"/></svg>
+      </button>
+    </div>
+
+    <button id="next" class="big" aria-label="Sonraki" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14l10-7z"/><rect x="17" y="5" width="2.5" height="14"/></svg>
+    </button>
+
+    <div class="side r">
+      <button id="dl" class="sm" aria-label="İndir" disabled>
+        <svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
+      </button>
+      <button id="fs" class="sm" aria-label="Tam ekran" disabled>
+        <svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="sspanel" role="dialog" aria-label="Slayt gösterisi" hidden>
+    <label for="ssrange">Bekleme süresi: <b id="ssval">5</b> sn</label>
+    <input id="ssrange" type="range" min="2" max="30" step="1" value="5">
+    <small>Videolar sonuna kadar oynatılır.</small>
+    <button id="ssgo" class="pbtn" type="button">Başlat</button>
+  </div>
+
+<script>
+(() => {
+  /*
+    Media lives in /media. Two optional index files, both used if present:
+      media/list.json     plain list:   ["a.jpg", "clip.mp4"]  (items here are NOT encrypted)
+      media/manifest.bin  encrypted list made by vault.py (needs the password / key)
+      media/vault.json    present -> the password is a passphrase (PBKDF2); absent -> it's a raw base64url key
+    Encrypted file format: nonce(12) + AES-256-GCM ciphertext+tag.
+  */
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), btn = $('next'), prevB = $('prev'), dlB = $('dl'), fsB = $('fs'), ssB = $('ss');
+  const panel = $('sspanel'), range = $('ssrange'), ssval = $('ssval'), ssgo = $('ssgo');
+  const isVideo = s => /\.(mp4|webm|mov|m4v)$/i.test(s) || /^video\//.test(s);
+  const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const hasCrypto = () => !!(window.crypto && crypto.subtle);
+  const b64d = s => {
+    s = s.replace(/-/g, '+').replace(/_/g, '/'); s += '='.repeat((4 - s.length % 4) % 4);
+    return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  };
+  const say = html => { stage.innerHTML = '<p class="msg">' + html + '</p>'; };
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} }
+  };
+  const WK = 'yillik-wait';
+  store.del('yillik-pw');   // clean up anything an older version saved
+
+  let key = null, items = [], deck = [], hist = [], pos = -1, busy = false;
+  let curIdx = -1, curEl = null, curSrc = null;
+  let ssOn = false, ssTimer = null, wl = null;
+  let ssWait = Math.min(30, Math.max(2, +store.get(WK) || 5));
+  const cache = new Map();   // item index -> Promise<{src, video, blob}>, least-recently-used first
+
+  /* ---------- keys & decryption ---------- */
+  async function deriveKey(sec, meta) {
+    if (!hasCrypto()) return null;
+    try {
+      if (!meta) return await crypto.subtle.importKey('raw', b64d(sec), 'AES-GCM', false, ['decrypt']);
+      const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(sec), 'PBKDF2', false, ['deriveKey']);
+      return await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: b64d(meta.salt), iterations: meta.iterations, hash: 'SHA-256' },
+        base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    } catch { return null; }
+  }
+  async function decryptBuf(buf) {
+    const u = new Uint8Array(buf);
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, key, u.slice(12));
+  }
+
+  async function fetchIndex() {
+    let h = location.hash.slice(1);
+    try { h = decodeURIComponent(h); } catch {}
+    const fromHash = !!h, sec = h;
+    let meta = null;
+    try { const r = await fetch('media/vault.json', { cache: 'no-cache' }); if (r.ok) meta = await r.json(); } catch {}
+    key = sec ? await deriveKey(sec, meta) : null;
+
+    const list = []; let locked = false, wrong = false, encrypted = false;
+    try {   // plain list
+      const r = await fetch('media/list.json', { cache: 'no-cache' });
+      if (r.ok) list.push(...(await r.json()).map(x => typeof x === 'string' ? { f: x } : x));
+    } catch {}
+    try {   // encrypted manifest
+      const r = await fetch('media/manifest.bin', { cache: 'no-cache' });
+      if (r.ok) {
+        if (!key) locked = true;
+        else {
+          try {
+            const m = JSON.parse(new TextDecoder().decode(await decryptBuf(await r.arrayBuffer())));
+            list.push(...m.map(x => ({ ...x, e: true }))); encrypted = true;
+          } catch { wrong = true; }
+        }
+      }
+    } catch {}
+    return { list, locked, wrong, encrypted, fromHash };
+  }
+
+  /* ---------- backdrop ---------- */
+  const bgwrap = $('bgwrap'), bgveil = $('bgveil');
+  function setBackdrop(url) {
+    const olds = [...bgwrap.querySelectorAll('.bgl')];
+    const l = document.createElement('div'); l.className = 'bgl';
+    l.style.backgroundImage = 'url("' + url + '")';
+    bgwrap.insertBefore(l, bgveil);
+    requestAnimationFrame(() => requestAnimationFrame(() => l.classList.add('on')));
+    setTimeout(() => olds.forEach(o => o.remove()), 700);
+  }
+  function clearBackdrop() {
+    bgwrap.querySelectorAll('.bgl').forEach(o => { o.classList.remove('on'); setTimeout(() => o.remove(), 700); });
+  }
+  function frameOf(v) {   // tiny snapshot (a few dozen px) of a photo or video frame: stretched + blurred, its colors melt together
+    try {
+      const w = v.videoWidth || v.naturalWidth, h = v.videoHeight || v.naturalHeight;
+      if (!w || !h) return null;
+      const c = document.createElement('canvas'); c.width = 32; c.height = Math.max(1, Math.round(32 * h / w));
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', .7);
+    } catch { return null; }
+  }
+
+  /* ---------- lock screen ---------- */
+  const LOCK_SVG =
+    '<svg class="lockicon" viewBox="0 0 64 64" aria-hidden="true">' +
+    '<path class="shackle" d="M20 40V20a12 12 0 0 1 24 0V28" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+    '<g class="lbody"><rect x="12" y="28" width="40" height="30" rx="6" fill="currentColor"/>' +
+    '<circle class="kh" cx="32" cy="41" r="4"/><rect class="kh" x="30" y="43" width="4" height="8" rx="2"/>' +
+    '<path class="check" d="M25.5 43l5 5 9-10.5" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></g></svg>';
+
+  function askPassword(wrong, shake) {
+    stage.innerHTML = '<div class="msg lock">' + LOCK_SVG +
+      '<form autocomplete="off">' +
+      '<label for="pw">Şifre</label>' +
+      '<input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>' +
+      '<button class="pbtn" type="submit">Aç</button><p class="err" role="alert"></p></form></div>';
+    const lock = stage.querySelector('.lock'), form = stage.querySelector('form');
+    const input = $('pw'), go = form.querySelector('button');
+    if (wrong) form.querySelector('.err').textContent = 'Şifre yanlış. Tekrar dene.';
+    if (shake && wrong && !reduce()) lock.classList.add('shake');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      if (!input.value) return;
+      input.disabled = go.disabled = true; go.textContent = 'Açılıyor…';
+      location.hash = encodeURIComponent(input.value);   // password goes on the end of the link
+      start(true);
+    });
+    input.focus();
+  }
+
+  async function playUnlock() {
+    const lock = stage.querySelector('.lock'), icon = stage.querySelector('.lockicon');
+    if (!lock || !icon || reduce()) return;
+    icon.classList.add('open'); await sleep(950);
+    lock.classList.add('leaving'); await sleep(280);
+  }
+
+  async function start(fromForm) {
+    items = []; deck = []; hist = []; pos = -1; curIdx = -1; curEl = null; clearBackdrop(); setEnabled();
+    const r = await fetchIndex();
+    if (r.locked || r.wrong) {
+      if (!hasCrypto()) { say('Şifre çözmek için HTTPS (veya localhost) gerekir.'); return; }
+      if (r.fromHash) history.replaceState(null, '', location.pathname + location.search);   // drop the bad password from the link
+      askPassword(r.fromHash, fromForm);
+      return;
+    }
+    items = r.list;
+    if (!items.length) {
+      say('İçerik bulunamadı.');
+      return;
+    }
+    if (fromForm && r.encrypted) await playUnlock();
+    say('Bir fotoğraf görmek için ileri tuşuna bas.');
+    setEnabled();
+  }
+
+  /* ---------- loading media (with a small look-ahead cache) ---------- */
+  function prepare(i) {
+    if (cache.has(i)) { const p = cache.get(i); cache.delete(i); cache.set(i, p); return p; }
+    const item = items[i];
+    const p = (async () => {
+      if (item.e) {
+        const r = await fetch('media/' + encodeURIComponent(item.f));
+        if (!r.ok) throw new Error('missing');
+        const plain = await decryptBuf(await r.arrayBuffer());
+        return { src: URL.createObjectURL(new Blob([plain], { type: item.t || '' })), video: isVideo(item.t || item.f), blob: true };
+      }
+      const src = 'media/' + encodeURIComponent(item.f), video = isVideo(item.f);
+      if (!video) { const im = new Image(); im.src = src; }   // warm the browser cache
+      return { src, video, blob: false };
+    })();
+    p.catch(() => { if (cache.get(i) === p) cache.delete(i); });
+    cache.set(i, p);
+    while (cache.size > 6) {
+      const k = cache.keys().next().value, old = cache.get(k); cache.delete(k);
+      old.then(v => { if (v.blob && v.src !== curSrc) URL.revokeObjectURL(v.src); }, () => {});
+    }
+    return p;
+  }
+
+  function refill() {
+    deck = items.map((_, i) => i);   // reshuffle: nothing repeats until everything has been seen
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+  }
+  const takeNew = () => { if (!deck.length) refill(); return deck.pop(); };
+  const peekNew = () => { if (!deck.length) refill(); return deck[deck.length - 1]; };
+  function preloadNext() {
+    if (!items.length) return;
+    const i = pos < hist.length - 1 ? hist[pos + 1] : peekNew();
+    if (i != null) prepare(i).catch(() => {});
+  }
+
+  const ready = el => new Promise(res => {
+    const t = setTimeout(res, 4000);
+    const done = () => { clearTimeout(t); res(); };
+    if (el.tagName === 'IMG') el.decode().then(done, done);
+    else { el.addEventListener('loadeddata', done, { once: true }); el.addEventListener('error', done, { once: true }); }
+  });
+
+  async function show(i, dir) {
+    const { src, video } = await prepare(i);
+    const el = document.createElement(video ? 'video' : 'img');
+    if (video) { el.controls = true; el.playsInline = true; el.loop = !ssOn; el.muted = false; el.preload = 'auto'; }
+    else { el.alt = ''; el.draggable = false; }
+    el.style.opacity = '0';
+    el.src = src;
+
+    const old = [...stage.querySelectorAll('img, video')];
+    stage.querySelector('.msg')?.remove();
+    stage.append(el);
+    await ready(el);
+
+    const rm = reduce(), d = dir || 1;
+    el.style.opacity = '';
+    if (!rm) el.animate(
+      [{ opacity: 0, transform: `translateX(${56 * d}px) scale(.94)` }, { opacity: 1, transform: 'none' }],
+      { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    curIdx = i; curEl = el; curSrc = src;
+    if (video) {
+      const cap = () => { if (curEl !== el) return; const u = frameOf(el); if (u) setBackdrop(u); };
+      cap(); el.addEventListener('playing', () => setTimeout(cap, 500), { once: true });
+    } else setBackdrop(frameOf(el) || src);
+    if (video) el.play().catch(() => { el.muted = true; el.play().catch(() => {}); });   // sound on, muted fallback
+
+    old.forEach(o => {
+      if (o.pause) o.pause();
+      if (rm) return o.remove();
+      o.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${-56 * d}px) scale(.94)` }],
+        { duration: 260, easing: 'ease-in', fill: 'forwards' }).onfinish = () => o.remove();
+    });
+  }
+
+  async function go(dir) {
+    if (busy || !items.length) return;
+    let i;
+    if (dir > 0) {
+      if (pos < hist.length - 1) i = hist[++pos];
+      else { i = takeNew(); hist.push(i); pos++; }
+    } else {
+      if (pos <= 0) return;
+      i = hist[--pos];
+    }
+    busy = true;
+    try { await show(i, dir); } catch {}
+    busy = false;
+    setEnabled(); preloadNext(); scheduleSlide();
+  }
+
+  function setEnabled() {
+    const has = items.length > 0;
+    btn.disabled = ssB.disabled = !has;
+    prevB.disabled = !has || pos <= 0;
+    dlB.disabled = fsB.disabled = curIdx < 0;
+  }
+
+  /* ---------- slideshow ---------- */
+  async function wakeLock(on) {
+    try {
+      if (on && navigator.wakeLock) wl = await navigator.wakeLock.request('screen');
+      else if (wl) { await wl.release(); wl = null; }
+    } catch {}
+  }
+  function scheduleSlide() {
+    clearTimeout(ssTimer);
+    if (!ssOn || !curEl) return;
+    const tick = () => { if (!ssOn) return; if (busy) { ssTimer = setTimeout(tick, 400); return; } go(1); };
+    if (curEl.tagName === 'VIDEO') {   // videos play to the end, then move on
+      const el = curEl; el.loop = false;
+      el.addEventListener('ended', () => { if (ssOn && curEl === el) { clearTimeout(ssTimer); ssTimer = setTimeout(tick, 800); } }, { once: true });
+      ssTimer = setTimeout(tick, 180000);   // safety net if a video never ends
+    } else ssTimer = setTimeout(tick, ssWait * 1000);
+  }
+  function setSS(on) {
+    ssOn = on;
+    ssB.setAttribute('aria-pressed', on);
+    ssgo.textContent = on ? 'Durdur' : 'Başlat';
+    wakeLock(on);
+    if (on) { if (curIdx < 0) go(1); else scheduleSlide(); }
+    else { clearTimeout(ssTimer); if (curEl && curEl.tagName === 'VIDEO') curEl.loop = true; }
+  }
+  const closePanel = () => { panel.hidden = true; };
+  ssB.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+  ssgo.addEventListener('click', () => { setSS(!ssOn); closePanel(); });
+  range.value = ssWait; ssval.textContent = ssWait;
+  range.addEventListener('input', () => {
+    ssWait = +range.value; ssval.textContent = ssWait; store.set(WK, ssWait);
+    if (ssOn) scheduleSlide();
+  });
+  document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target) && !ssB.contains(e.target)) closePanel(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ssOn) wakeLock(true); });
+
+  /* ---------- download, fullscreen ---------- */
+  const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+  dlB.addEventListener('click', () => {
+    if (curIdx < 0) return;
+    const it = items[curIdx];
+    const name = it.e ? it.f.replace(/\.bin$/, '') + '.' + (EXT[it.t] || 'bin') : it.f.split('/').pop();
+    const a = document.createElement('a'); a.href = curSrc; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  function setFs(on) {
+    closePanel();
+    document.body.classList.toggle('fs', on);
+    try {
+      if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      else if (!on && document.fullscreenElement) document.exitFullscreen();
+    } catch {}
+  }
+  const inFs = () => document.body.classList.contains('fs');
+  fsB.addEventListener('click', () => setFs(!inFs()));
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.body.classList.remove('fs'); });
+
+  /* ---------- input: buttons, swipe, tap, keys, shake ---------- */
+  btn.addEventListener('click', () => go(1));
+  prevB.addEventListener('click', () => go(-1));
+
+  const zoomed = () => window.visualViewport && visualViewport.scale > 1.02;   // browser pinch-zoom active
+  const ptrs = new Set(); let sx = 0, sy = 0, st = 0, tgt = null, multi = false;
+  stage.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    ptrs.add(e.pointerId);
+    if (ptrs.size > 1) multi = true;
+    else { sx = e.clientX; sy = e.clientY; st = Date.now(); tgt = e.target; multi = false; }
+  });
+  stage.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); if (!ptrs.size) multi = false; });
+  stage.addEventListener('pointerup', e => {
+    if (!ptrs.delete(e.pointerId) || ptrs.size) return;
+    const wasMulti = multi; multi = false;
+    if (wasMulti || zoomed() || !tgt) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (tgt.tagName === 'VIDEO' && sy > tgt.getBoundingClientRect().bottom - 70) return;   // leave the video controls alone
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
+    else if (Math.hypot(dx, dy) < 10 && Date.now() - st < 500 && tgt.tagName === 'IMG') setFs(!inFs());
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'ArrowRight') go(1);
+    else if (e.code === 'ArrowLeft') go(-1);
+    else if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); go(1); }
+    else if (e.code === 'KeyF' && curIdx >= 0) setFs(!inFs());
+    else if (e.code === 'Escape') { closePanel(); if (inFs()) setFs(false); }
+  });
+
+  // Shake (bonus path). iOS needs a permission request from a tap.
+  let last = 0, motionOn = false;
+  function onMotion(e) {
+    const a = e.accelerationIncludingGravity; if (!a) return;
+    const g = Math.hypot(a.x || 0, a.y || 0, a.z || 0), now = Date.now();
+    if (g > 25 && now - last > 900) { last = now; go(1); }
+  }
+  btn.addEventListener('click', () => {
+    if (motionOn || !window.DeviceMotionEvent) return;
+    motionOn = true;
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(s => { if (s === 'granted') addEventListener('devicemotion', onMotion); }).catch(() => {});
+    } else addEventListener('devicemotion', onMotion);
+  });
+
+  start(false);
+})();
+</script>
+</body>
+</html>
