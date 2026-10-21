@@ -36,7 +36,7 @@
   #bgveil { position: absolute; inset: 0; background: var(--bg); opacity: .2; }   /* light tint only; buttons get their own frosted backing */
   #stage, #bar { position: relative; z-index: 1; }
   body.fs #bgwrap { display: none; }
-  @media (prefers-reduced-motion: reduce) { .bgl { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .bgl, .big .prog { transition: none; } }
 
   /* ---------- viewing area ---------- */
   #stage {
@@ -73,8 +73,11 @@
 
   button { font: inherit; color: inherit; }
   .big, .sm { border-radius: 50%; cursor: pointer; display: grid; place-items: center; padding: 0; transition: transform .15s ease, opacity .15s; }
-  .big { width: 60px; height: 60px; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink); box-shadow: 0 4px 16px rgba(0, 0, 0, .22); }
-  .big svg { width: 28px; height: 28px; fill: currentColor; }
+  .big { position: relative; width: 60px; height: 60px; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink); box-shadow: 0 4px 16px rgba(0, 0, 0, .22); }
+  .big svg.ico { width: 28px; height: 28px; fill: currentColor; }
+  /* queue progress: an arc drawn over the button's border, filling as you move through the shuffled queue */
+  .big svg.ring { position: absolute; inset: -1.5px; width: 60px; height: 60px; transform: rotate(-90deg); pointer-events: none; fill: none; }
+  .big .prog { stroke: var(--ink); stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .45s ease; }
   .sm {
     width: 44px; height: 44px; border: 1.5px solid var(--ink); color: var(--ink);
     background: transparent;
@@ -168,7 +171,8 @@
     </div>
 
     <button id="next" class="big" aria-label="Sonraki" disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14l10-7z"/><rect x="17" y="5" width="2.5" height="14"/></svg>
+      <svg class="ring" viewBox="0 0 60 60" aria-hidden="true"><circle class="prog" cx="30" cy="30" r="28.5" pathLength="100"/></svg>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14l10-7z"/><rect x="17" y="5" width="2.5" height="14"/></svg>
     </button>
 
     <div class="side r">
@@ -199,6 +203,7 @@
   */
   const $ = id => document.getElementById(id);
   const stage = $('stage'), btn = $('next'), prevB = $('prev'), dlB = $('dl'), fsB = $('fs'), ssB = $('ss');
+  const prog = btn.querySelector('.prog');
   const panel = $('sspanel'), range = $('ssrange'), ssval = $('ssval'), ssgo = $('ssgo');
   const isVideo = s => /\.(mp4|webm|mov|m4v)$/i.test(s) || /^video\//.test(s);
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -217,7 +222,7 @@
   const WK = 'yillik-wait';
   store.del('yillik-pw');   // clean up anything an older version saved
 
-  let key = null, items = [], deck = [], hist = [], pos = -1, busy = false;
+  let key = null, items = [], queue = [], pos = -1, busy = false;
   let curIdx = -1, curEl = null, curSrc = null;
   let ssOn = false, ssTimer = null, wl = null;
   let ssWait = Math.min(30, Math.max(2, +store.get(WK) || 5));
@@ -239,31 +244,61 @@
     return crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, key, u.slice(12));
   }
 
+  /*
+    Two ways to read /media:
+      fetch:    <MEDIA_BASE><name>.bin / .json  (from a web page, or from a local file when MEDIA_BASE is a web address)
+      script:   for a local page reading a local media/ folder, where browsers block fetch: each file is also
+                readable as a script, media/<name>.js, which stores its content in window.__V
+                (vault.py --format js writes these)
+  */
+  // Where the encrypted media lives. This page can run from anywhere (even a local file) and read the
+  // files straight from the GitHub repo: raw.githubusercontent.com allows cross-origin reads.
+  // To test against a local copy instead, change this to 'media/'.
+  const MEDIA_BASE = 'https://raw.githubusercontent.com/SouthyTR/southytr.github.io/refs/heads/main/HSmemories/media/';
+  const FILE_MODE = location.protocol === 'file:';
+  const USE_FETCH = !FILE_MODE || /^https?:/i.test(MEDIA_BASE);   // a local page may only fetch from a web address
+  const REG = () => (window.__V = window.__V || {});
+  const loadScript = src => new Promise(res => {
+    const el = document.createElement('script');
+    el.onload = () => { el.remove(); res(true); };
+    el.onerror = () => { el.remove(); res(false); };
+    el.src = src; document.head.appendChild(el);
+  });
+  async function b64ToBuf(b64) {
+    try { return await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer(); }
+    catch { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+  }
+  async function getJson(base) {
+    if (USE_FETCH) { try { const r = await fetch(MEDIA_BASE + base + '.json', { cache: 'no-cache' }); if (r.ok) return await r.json(); } catch {} }
+    if (await loadScript('media/' + base + '.js')) { const v = REG()[base]; delete REG()[base]; return v === undefined ? null : v; }
+    return null;
+  }
+  async function getBytes(base, fresh) {   // an encrypted file: nonce + ciphertext + tag
+    if (USE_FETCH) { try { const r = await fetch(MEDIA_BASE + encodeURIComponent(base) + '.bin', fresh ? { cache: 'no-cache' } : undefined); if (r.ok) return await r.arrayBuffer(); } catch {} }
+    if (await loadScript('media/' + base + '.js')) { const v = REG()[base]; delete REG()[base]; if (typeof v === 'string') return b64ToBuf(v); }
+    return null;
+  }
+
   async function fetchIndex() {
     let h = location.hash.slice(1);
     try { h = decodeURIComponent(h); } catch {}
     const fromHash = !!h, sec = h;
-    let meta = null;
-    try { const r = await fetch('media/vault.json', { cache: 'no-cache' }); if (r.ok) meta = await r.json(); } catch {}
+    const meta = await getJson('vault');
     key = sec ? await deriveKey(sec, meta) : null;
 
     const list = []; let locked = false, wrong = false, encrypted = false;
-    try {   // plain list
-      const r = await fetch('media/list.json', { cache: 'no-cache' });
-      if (r.ok) list.push(...(await r.json()).map(x => typeof x === 'string' ? { f: x } : x));
-    } catch {}
-    try {   // encrypted manifest
-      const r = await fetch('media/manifest.bin', { cache: 'no-cache' });
-      if (r.ok) {
-        if (!key) locked = true;
-        else {
-          try {
-            const m = JSON.parse(new TextDecoder().decode(await decryptBuf(await r.arrayBuffer())));
-            list.push(...m.map(x => ({ ...x, e: true }))); encrypted = true;
-          } catch { wrong = true; }
-        }
+    const plain = await getJson('list');   // plain list (no encryption needed)
+    if (Array.isArray(plain)) list.push(...plain.map(x => typeof x === 'string' ? { f: x } : x));
+    const mbuf = await getBytes('manifest', true);   // encrypted manifest
+    if (mbuf) {
+      if (!key) locked = true;
+      else {
+        try {
+          const m = JSON.parse(new TextDecoder().decode(await decryptBuf(mbuf)));
+          list.push(...m.map(x => ({ ...x, e: true }))); encrypted = true;
+        } catch { wrong = true; }
       }
-    } catch {}
+    }
     return { list, locked, wrong, encrypted, fromHash };
   }
 
@@ -326,11 +361,11 @@
   }
 
   async function start(fromForm) {
-    items = []; deck = []; hist = []; pos = -1; curIdx = -1; curEl = null; clearBackdrop(); setEnabled();
+    items = []; queue = []; pos = -1; curIdx = -1; curEl = null; clearBackdrop(); setEnabled();
     const r = await fetchIndex();
     if (r.locked || r.wrong) {
-      if (!hasCrypto()) { say('Şifre çözmek için HTTPS (veya localhost) gerekir.'); return; }
-      if (r.fromHash) history.replaceState(null, '', location.pathname + location.search);   // drop the bad password from the link
+      if (!hasCrypto()) { say(FILE_MODE ? 'Şifre çözmek için bu dosyayı Chrome, Edge veya Firefox ile aç.' : 'Şifre çözmek için HTTPS (veya localhost) gerekir.'); return; }
+      if (r.fromHash) { try { history.replaceState(null, '', location.pathname + location.search); } catch { location.hash = ''; } }   // drop the bad password from the link
       askPassword(r.fromHash, fromForm);
       return;
     }
@@ -339,6 +374,7 @@
       say('İçerik bulunamadı.');
       return;
     }
+    restoreQueue();
     if (fromForm && r.encrypted) await playUnlock();
     say('Bir fotoğraf görmek için ileri tuşuna bas.');
     setEnabled();
@@ -350,12 +386,12 @@
     const item = items[i];
     const p = (async () => {
       if (item.e) {
-        const r = await fetch('media/' + encodeURIComponent(item.f));
-        if (!r.ok) throw new Error('missing');
-        const plain = await decryptBuf(await r.arrayBuffer());
+        const buf = await getBytes(item.f.replace(/\.bin$/, ''));
+        if (!buf) throw new Error('missing');
+        const plain = await decryptBuf(buf);
         return { src: URL.createObjectURL(new Blob([plain], { type: item.t || '' })), video: isVideo(item.t || item.f), blob: true };
       }
-      const src = 'media/' + encodeURIComponent(item.f), video = isVideo(item.f);
+      const src = MEDIA_BASE + encodeURIComponent(item.f), video = isVideo(item.f);
       if (!video) { const im = new Image(); im.src = src; }   // warm the browser cache
       return { src, video, blob: false };
     })();
@@ -368,19 +404,46 @@
     return p;
   }
 
-  function refill() {
-    deck = items.map((_, i) => i);   // reshuffle: nothing repeats until everything has been seen
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
+  /* ---------- shuffled queue, like a music app ---------- */
+  /* One cycle = every item exactly once, in random order. The next cycle is appended when the
+     current one runs out, and its start never echoes the end of the last one. Progress is saved
+     on this device, so scanning the QR again carries on instead of starting over. */
+  const QK = 'yillik-queue';
+  function sig() {
+    let h = 5381; const t = items.map(x => x.f).join('|');
+    for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+    return items.length + ':' + h;
   }
-  const takeNew = () => { if (!deck.length) refill(); return deck.pop(); };
-  const peekNew = () => { if (!deck.length) refill(); return deck[deck.length - 1]; };
+  function shuffled(prev) {
+    const n = items.length, k = Math.min(5, Math.floor(n / 3)), tail = new Set(prev.slice(-k));
+    let a;
+    for (let tries = 0; tries < 30; tries++) {
+      a = items.map((_, i) => i);
+      for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+      if (!a.slice(0, k).some(i => tail.has(i))) break;
+    }
+    return a;
+  }
+  const ensureAhead = () => { if (pos + 1 >= queue.length) queue = queue.concat(shuffled(queue)); };
+  function saveQueue() {
+    const n = items.length;
+    if (queue.length > 3 * n && pos >= n) { queue = queue.slice(n); pos -= n; }   // forget the oldest cycle
+    store.set(QK, JSON.stringify({ s: sig(), q: queue, p: pos }));
+  }
+  function restoreQueue() {
+    queue = []; pos = -1;
+    try {
+      const d = JSON.parse(store.get(QK) || 'null'), n = items.length;
+      if (d && d.s === sig() && Array.isArray(d.q) && d.q.length && d.q.length % n === 0 &&
+          d.q.every(i => Number.isInteger(i) && i >= 0 && i < n) && Number.isInteger(d.p) && d.p >= -1 && d.p < d.q.length) {
+        queue = d.q; pos = d.p;
+      }
+    } catch {}
+  }
   function preloadNext() {
     if (!items.length) return;
-    const i = pos < hist.length - 1 ? hist[pos + 1] : peekNew();
-    if (i != null) prepare(i).catch(() => {});
+    ensureAhead();
+    prepare(queue[pos + 1]).catch(() => {});
   }
 
   const ready = el => new Promise(res => {
@@ -426,17 +489,12 @@
   async function go(dir) {
     if (busy || !items.length) return;
     let i;
-    if (dir > 0) {
-      if (pos < hist.length - 1) i = hist[++pos];
-      else { i = takeNew(); hist.push(i); pos++; }
-    } else {
-      if (pos <= 0) return;
-      i = hist[--pos];
-    }
+    if (dir > 0) { ensureAhead(); i = queue[++pos]; }
+    else { if (pos <= 0) return; i = queue[--pos]; }
     busy = true;
     try { await show(i, dir); } catch {}
     busy = false;
-    setEnabled(); preloadNext(); scheduleSlide();
+    saveQueue(); setEnabled(); preloadNext(); scheduleSlide();
   }
 
   function setEnabled() {
@@ -444,6 +502,8 @@
     btn.disabled = ssB.disabled = !has;
     prevB.disabled = !has || pos <= 0;
     dlB.disabled = fsB.disabled = curIdx < 0;
+    const n = items.length;   // progress through the current shuffle cycle
+    prog.style.strokeDashoffset = 100 - (n && pos >= 0 ? ((pos % n) + 1) / n * 100 : 0);
   }
 
   /* ---------- slideshow ---------- */
