@@ -24,14 +24,18 @@
   }
 
   /* ---------- blurred backdrop (current photo, blown up and softened) ---------- */
-  #bgwrap { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  #bgwrap { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
   .bgl {
     position: absolute; inset: -60px; background-size: cover; background-position: center;
     filter: blur(40px) saturate(1.8) contrast(1.05); opacity: 0; transition: opacity .6s ease;
   }
   .bgl.on { opacity: 1; }
   #bgveil { position: absolute; inset: 0; background: var(--bg); opacity: .2; }   /* light tint only; buttons get their own frosted backing */
-  #stage, #bar { position: relative; z-index: 1; }
+  #stage, #bar { position: relative; }
+  #bar { z-index: 1; }
+  /* the photo area sits above the bar (whose buttons are frosted glass) and clips its contents hard, so a falling or
+     sliding photo can never show up underneath the buttons, even in browsers that skip overflow clipping for animated layers */
+  #stage { z-index: 2; isolation: isolate; clip-path: inset(0); }
   body.fs #bgwrap { display: none; }
   @media (prefers-reduced-motion: reduce) { .bgl { transition: none; } }
 
@@ -479,7 +483,7 @@
     await ready(el);
 
     const rm = reduce(), d = dir || 1;
-    if (how === 'shake' && !rm && old.length) { await fall(old); old = []; }   // old photo drops first, then the new one slides in as usual
+    if (how === 'shake' && !rm && old.length) { await fall(old); old = []; await sleep(1000); }   // old photo drops, a one-second beat, then the new one slides in as usual
     el.style.opacity = '';
     if (!rm) el.animate(
       [{ opacity: 0, transform: `translateX(${56 * d}px) scale(.94)` }, { opacity: 1, transform: 'none' }],
