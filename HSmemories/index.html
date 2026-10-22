@@ -12,9 +12,6 @@
     --icon: #e9e6df;
     --panel: #f6f4ef;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --ink: #ecebe6; --btn: #ecebe6; --icon: #151514; --panel: #232321; }
-  }
   * { box-sizing: border-box; margin: 0; }
   [hidden] { display: none !important; }
   html, body { height: 100%; }
@@ -36,7 +33,7 @@
   #bgveil { position: absolute; inset: 0; background: var(--bg); opacity: .2; }   /* light tint only; buttons get their own frosted backing */
   #stage, #bar { position: relative; z-index: 1; }
   body.fs #bgwrap { display: none; }
-  @media (prefers-reduced-motion: reduce) { .bgl, .big .prog { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .bgl { transition: none; } }
 
   /* ---------- viewing area ---------- */
   #stage {
@@ -75,9 +72,6 @@
   .big, .sm { border-radius: 50%; cursor: pointer; display: grid; place-items: center; padding: 0; transition: transform .15s ease, opacity .15s; }
   .big { position: relative; width: 60px; height: 60px; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink); box-shadow: 0 4px 16px rgba(0, 0, 0, .22); }
   .big svg.ico { width: 28px; height: 28px; fill: currentColor; }
-  /* queue progress: an arc drawn over the button's border, filling as you move through the shuffled queue */
-  .big svg.ring { position: absolute; inset: -1.5px; width: 60px; height: 60px; transform: rotate(-90deg); pointer-events: none; fill: none; }
-  .big .prog { stroke: var(--ink); stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .45s ease; }
   .sm {
     width: 44px; height: 44px; border: 1.5px solid var(--ink); color: var(--ink);
     background: transparent;
@@ -171,7 +165,6 @@
     </div>
 
     <button id="next" class="big" aria-label="Sonraki" disabled>
-      <svg class="ring" viewBox="0 0 60 60" aria-hidden="true"><circle class="prog" cx="30" cy="30" r="28.5" pathLength="100"/></svg>
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14l10-7z"/><rect x="17" y="5" width="2.5" height="14"/></svg>
     </button>
 
@@ -203,7 +196,6 @@
   */
   const $ = id => document.getElementById(id);
   const stage = $('stage'), btn = $('next'), prevB = $('prev'), dlB = $('dl'), fsB = $('fs'), ssB = $('ss');
-  const prog = btn.querySelector('.prog');
   const panel = $('sspanel'), range = $('ssrange'), ssval = $('ssval'), ssgo = $('ssgo');
   const isVideo = s => /\.(mp4|webm|mov|m4v)$/i.test(s) || /^video\//.test(s);
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -220,13 +212,15 @@
     del(k) { try { localStorage.removeItem(k); } catch {} }
   };
   const WK = 'yillik-wait';
-  store.del('yillik-pw');   // clean up anything an older version saved
+  store.del('yillik-pw'); store.del('yillik-queue');   // clean up anything an older version saved
 
   let key = null, items = [], queue = [], pos = -1, busy = false;
   let curIdx = -1, curEl = null, curSrc = null;
   let ssOn = false, ssTimer = null, wl = null;
   let ssWait = Math.min(30, Math.max(2, +store.get(WK) || 5));
   const cache = new Map();   // item index -> Promise<{src, video, blob}>, least-recently-used first
+  const sizes = new Map();   // item index -> decrypted bytes held in memory
+  const AHEAD = 8, CACHE_MAX = 14, PRELOAD_BYTES = 200e6;   // look-ahead, cache size, memory cap for look-ahead
 
   /* ---------- keys & decryption ---------- */
   async function deriveKey(sec, meta) {
@@ -251,11 +245,12 @@
                 readable as a script, media/<name>.js, which stores its content in window.__V
                 (vault.py --format js writes these)
   */
-  // Where the encrypted media lives. This page can run from anywhere (even a local file) and read the
-  // files straight from the GitHub repo: raw.githubusercontent.com allows cross-origin reads.
-  // To test against a local copy instead, change this to 'media/'.
-  const MEDIA_BASE = 'https://raw.githubusercontent.com/SouthyTR/southytr.github.io/refs/heads/main/HSmemories/media/';
+  // Where the encrypted media lives. Hosted (GitHub Pages or any web server): the media/ folder next to this page.
+  // Opened as a local file: the same folder read straight from the GitHub repo (raw.githubusercontent.com allows
+  // cross-origin reads), so a local copy of just this page works where Pages is blocked.
+  const RAW_BASE = 'https://raw.githubusercontent.com/SouthyTR/southytr.github.io/refs/heads/main/HSmemories/media/';
   const FILE_MODE = location.protocol === 'file:';
+  const MEDIA_BASE = FILE_MODE ? RAW_BASE : 'media/';
   const USE_FETCH = !FILE_MODE || /^https?:/i.test(MEDIA_BASE);   // a local page may only fetch from a web address
   const REG = () => (window.__V = window.__V || {});
   const loadScript = src => new Promise(res => {
@@ -374,7 +369,7 @@
       say('İçerik bulunamadı.');
       return;
     }
-    restoreQueue();
+    queue = []; pos = -1;   // a fresh shuffle every time the page loads
     if (fromForm && r.encrypted) await playUnlock();
     say('Bir fotoğraf görmek için ileri tuşuna bas.');
     setEnabled();
@@ -389,16 +384,17 @@
         const buf = await getBytes(item.f.replace(/\.bin$/, ''));
         if (!buf) throw new Error('missing');
         const plain = await decryptBuf(buf);
+        sizes.set(i, plain.byteLength);
         return { src: URL.createObjectURL(new Blob([plain], { type: item.t || '' })), video: isVideo(item.t || item.f), blob: true };
       }
       const src = MEDIA_BASE + encodeURIComponent(item.f), video = isVideo(item.f);
       if (!video) { const im = new Image(); im.src = src; }   // warm the browser cache
       return { src, video, blob: false };
     })();
-    p.catch(() => { if (cache.get(i) === p) cache.delete(i); });
+    p.catch(() => { if (cache.get(i) === p) { cache.delete(i); sizes.delete(i); } });
     cache.set(i, p);
-    while (cache.size > 6) {
-      const k = cache.keys().next().value, old = cache.get(k); cache.delete(k);
+    while (cache.size > CACHE_MAX) {
+      const k = cache.keys().next().value, old = cache.get(k); cache.delete(k); sizes.delete(k);
       old.then(v => { if (v.blob && v.src !== curSrc) URL.revokeObjectURL(v.src); }, () => {});
     }
     return p;
@@ -406,14 +402,8 @@
 
   /* ---------- shuffled queue, like a music app ---------- */
   /* One cycle = every item exactly once, in random order. The next cycle is appended when the
-     current one runs out, and its start never echoes the end of the last one. Progress is saved
-     on this device, so scanning the QR again carries on instead of starting over. */
-  const QK = 'yillik-queue';
-  function sig() {
-    let h = 5381; const t = items.map(x => x.f).join('|');
-    for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
-    return items.length + ':' + h;
-  }
+     current one runs out, and its start never echoes the end of the last one. Nothing is saved:
+     every page load starts a brand new shuffle. */
   function shuffled(prev) {
     const n = items.length, k = Math.min(5, Math.floor(n / 3)), tail = new Set(prev.slice(-k));
     let a;
@@ -424,26 +414,31 @@
     }
     return a;
   }
-  const ensureAhead = () => { if (pos + 1 >= queue.length) queue = queue.concat(shuffled(queue)); };
-  function saveQueue() {
+  const ensureAhead = (ahead = 1) => { while (pos + ahead >= queue.length) queue = queue.concat(shuffled(queue)); };
+  function trimQueue() {
     const n = items.length;
     if (queue.length > 3 * n && pos >= n) { queue = queue.slice(n); pos -= n; }   // forget the oldest cycle
-    store.set(QK, JSON.stringify({ s: sig(), q: queue, p: pos }));
   }
-  function restoreQueue() {
-    queue = []; pos = -1;
+  /* Keeps the next AHEAD items of the queue downloaded + decrypted, nearest first, one at a time so the very
+     next item isn't starved. If you move on meanwhile it simply re-aims at the new window. Stops adding items
+     once PRELOAD_BYTES of decrypted media sit in memory (big videos). */
+  const cachedBytes = () => { let t = 0; for (const k of cache.keys()) t += sizes.get(k) || 0; return t; };
+  let preloading = false;
+  async function preloadAhead() {
+    if (preloading || !items.length) return;
+    preloading = true;
     try {
-      const d = JSON.parse(store.get(QK) || 'null'), n = items.length;
-      if (d && d.s === sig() && Array.isArray(d.q) && d.q.length && d.q.length % n === 0 &&
-          d.q.every(i => Number.isInteger(i) && i >= 0 && i < n) && Number.isInteger(d.p) && d.p >= -1 && d.p < d.q.length) {
-        queue = d.q; pos = d.p;
+      for (let from = pos; ; from = pos) {
+        ensureAhead(AHEAD);
+        for (let k = 1; k <= AHEAD && pos === from; k++) {
+          const i = queue[pos + k];
+          if (cache.has(i)) continue;
+          if (cachedBytes() > PRELOAD_BYTES) break;
+          await prepare(i).catch(() => {});
+        }
+        if (pos === from) break;
       }
-    } catch {}
-  }
-  function preloadNext() {
-    if (!items.length) return;
-    ensureAhead();
-    prepare(queue[pos + 1]).catch(() => {});
+    } finally { preloading = false; }
   }
 
   const ready = el => new Promise(res => {
@@ -453,7 +448,24 @@
     else { el.addEventListener('loadeddata', done, { once: true }); el.addEventListener('error', done, { once: true }); }
   });
 
-  async function show(i, dir) {
+  /* Shake-to-skip: the current photo jolts loose, then falls off its spot and out of view. */
+  async function fall(olds) {
+    const H = stage.clientHeight + 80;
+    const anims = olds.map(o => {
+      if (o.pause) o.pause();
+      const rot = (Math.random() < .5 ? -1 : 1) * (10 + Math.random() * 10), drift = (Math.random() - .5) * 60;
+      return o.animate([
+        { transform: 'none', offset: 0, easing: 'ease-out' },
+        { transform: 'translateY(-8px) rotate(-3deg)', offset: .16, easing: 'ease-in-out' },
+        { transform: 'translateY(4px) rotate(3deg)', offset: .3, easing: 'cubic-bezier(.5, 0, 1, .55)' },   // then gravity
+        { transform: `translate(${drift}px, ${H}px) rotate(${rot}deg)`, offset: 1 }
+      ], { duration: 720, fill: 'forwards' });
+    });
+    await Promise.all(anims.map(a => new Promise(res => { a.onfinish = res; a.oncancel = res; })));
+    olds.forEach(o => o.remove());
+  }
+
+  async function show(i, dir, how) {
     const { src, video } = await prepare(i);
     const el = document.createElement(video ? 'video' : 'img');
     if (video) { el.controls = true; el.playsInline = true; el.loop = !ssOn; el.muted = false; el.preload = 'auto'; }
@@ -461,12 +473,13 @@
     el.style.opacity = '0';
     el.src = src;
 
-    const old = [...stage.querySelectorAll('img, video')];
+    let old = [...stage.querySelectorAll('img, video')];
     stage.querySelector('.msg')?.remove();
     stage.append(el);
     await ready(el);
 
     const rm = reduce(), d = dir || 1;
+    if (how === 'shake' && !rm && old.length) { await fall(old); old = []; }   // old photo drops first, then the new one slides in as usual
     el.style.opacity = '';
     if (!rm) el.animate(
       [{ opacity: 0, transform: `translateX(${56 * d}px) scale(.94)` }, { opacity: 1, transform: 'none' }],
@@ -486,15 +499,15 @@
     });
   }
 
-  async function go(dir) {
+  async function go(dir, how) {
     if (busy || !items.length) return;
     let i;
     if (dir > 0) { ensureAhead(); i = queue[++pos]; }
     else { if (pos <= 0) return; i = queue[--pos]; }
     busy = true;
-    try { await show(i, dir); } catch {}
+    try { await show(i, dir, how); } catch {}
     busy = false;
-    saveQueue(); setEnabled(); preloadNext(); scheduleSlide();
+    trimQueue(); setEnabled(); preloadAhead(); scheduleSlide();
   }
 
   function setEnabled() {
@@ -502,8 +515,6 @@
     btn.disabled = ssB.disabled = !has;
     prevB.disabled = !has || pos <= 0;
     dlB.disabled = fsB.disabled = curIdx < 0;
-    const n = items.length;   // progress through the current shuffle cycle
-    prog.style.strokeDashoffset = 100 - (n && pos >= 0 ? ((pos % n) + 1) / n * 100 : 0);
   }
 
   /* ---------- slideshow ---------- */
@@ -601,7 +612,7 @@
   function onMotion(e) {
     const a = e.accelerationIncludingGravity; if (!a) return;
     const g = Math.hypot(a.x || 0, a.y || 0, a.z || 0), now = Date.now();
-    if (g > 25 && now - last > 900) { last = now; go(1); }
+    if (g > 25 && now - last > 900) { last = now; go(1, 'shake'); }
   }
   btn.addEventListener('click', () => {
     if (motionOn || !window.DeviceMotionEvent) return;
