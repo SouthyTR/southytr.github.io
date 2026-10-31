@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>hizmet dışı</title>
+<style>
+  :root {
+    --bg: #e9e6df;        /* same background as the yearbook page */
+    --paper: #fbfaf6;
+    --ink: #23262d;
+    --tape: rgba(226, 212, 160, .66);
+    --w: min(66vw, 270px);   /* paper width; tape and lettering scale with it */
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    display: grid; place-items: center;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    overflow: hidden;
+  }
+
+  .paper {
+    position: relative;
+    width: var(--w); aspect-ratio: 297 / 210;   /* A4, landscape */
+    display: grid; place-items: center;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .47  0 0 0 0 .4  0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+      var(--paper);
+    border-radius: 2px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .08), 0 10px 18px -8px rgba(40, 32, 20, .35);
+    transform: rotate(-2.2deg);
+  }
+
+  /* a strip of tape across each corner, torn at both ends */
+  .tape {
+    position: absolute;
+    width: calc(var(--w) * .2); height: calc(var(--w) * .06);
+    background: linear-gradient(100deg, rgba(255, 255, 255, .28), transparent 45%), var(--tape);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+    clip-path: polygon(0 8%, 4% 0, 8% 10%, 12% 0, 16% 8%, 100% 8%, 100% 92%, 96% 100%, 92% 90%, 88% 100%, 84% 92%, 0 92%);
+  }
+  .tape.tl { top: calc(var(--w) * -.005);    left: calc(var(--w) * -.065);  transform: rotate(-42deg); }
+  .tape.tr { top: calc(var(--w) * -.005);    right: calc(var(--w) * -.065); transform: rotate(42deg); }
+  .tape.bl { bottom: calc(var(--w) * -.005); left: calc(var(--w) * -.065);  transform: rotate(42deg); }
+  .tape.br { bottom: calc(var(--w) * -.005); right: calc(var(--w) * -.065); transform: rotate(-42deg); }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;   /* same as the yearbook page */
+    font-size: calc(var(--w) * .13); font-weight: 400; line-height: 1;
+    color: var(--ink); text-align: center; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <main class="paper">
+    <i class="tape tl" aria-hidden="true"></i>
+    <i class="tape tr" aria-hidden="true"></i>
+    <i class="tape bl" aria-hidden="true"></i>
+    <i class="tape br" aria-hidden="true"></i>
+    <h1>hizmet dışı</h1>
+  </main>
+</body>
+</html>
